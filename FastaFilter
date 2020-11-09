@@ -1,0 +1,65 @@
+import os
+import sys
+import re   #regular expression module
+
+input_file_name = sys.argv[1] #argv = vector of arguments
+output_file_name = sys.argv[2]
+sequence_name = None
+fp = open(input_file_name, "r") #r = reading (mode you are opening, w = write, a = append)
+fp_output = open(output_file_name, "w")
+
+def readmetadata (carrotline): 
+    metadict = {}
+    metapattern = r"\((.*?)\)"
+    entrypattern = r"'(.*?)'"
+    outerpattern = re.compile (metapattern)
+    innerpattern = re.compile (entrypattern)
+    metaentry = outerpattern.findall (carrotline) #makes a list of all of the entries
+    for entry in metaentry:
+        innercontents = innerpattern.findall (entry)
+        if len(innercontents) > 1:
+            key = innercontents [0]
+            if key.startswith ("query"):
+                key = "accession"
+            value = innercontents [1]
+            metadict [key] = value  #put shit in dictionary    
+    return metadict
+
+#Fasta file containing peptide sequences
+class Entry:
+    def __init__(self):
+        self.carrotline = ""  # defining this as some string of characters
+        self.sequence = ""
+        self.metadata = {}  # curly brackets because this is a dictionary
+        self.identifier = None
+        
+count = 1  #start count at 1
+
+entrylist = []  #classes - use uppercase, variables use lowercase by convention. This list with brackets creates an empty list to store the info from the for loop below.
+
+entry = None
+for line in fp:
+    line = line.strip() #just one line in file, strip takes off new line character and spaces etc.
+    if ">" in line:
+        if entry is not None:
+            entrylist.append (entry)
+        entry = Entry () #if we see caret then we make new entry object.
+        entry.carrotline = line
+        entry.metadata = readmetadata (entry.carrotline)
+        entry.identifier = count
+        count += 1
+    if not ">" in line:
+        entry.sequence += line
+if entry is not None:    
+    entrylist.append (entry)
+
+firstentry = entrylist [0]
+fp_output.write (",".join(firstentry.metadata.keys()) + ",sequence,identifier\n")
+
+for values in entrylist:
+    fp_output.write (",".join(values.metadata.values()) + "," + values.sequence + "," + str(values.identifier) + "\n")
+
+# Done with our files
+fp.close()
+fp_output.close()
+
